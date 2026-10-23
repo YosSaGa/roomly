@@ -1,0 +1,8 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {seedState,USERS,planBookings,validate,releaseNoShows} from './mock-model.js';
+const base={room:1,title:'Test',people:3,date:'2026-11-01',start:'10:00',end:'11:00'};
+test('recurring batch rejects all occurrences when a later date conflicts',()=>{const s=seedState('2026-10-23');s.bookings=[{...base,id:'conflict',date:'2026-11-15',status:'confirmed'}];const result=planBookings({...base,repeat:'weekly',count:4},s,USERS[0]);assert.ok(result.error);assert.equal(result.rows,undefined);});
+test('buffer, closures and duration apply to all users',()=>{const s=seedState('2026-10-23');s.rooms[0].buffer=15;s.bookings=[{...base,id:'busy',start:'09:00',end:'10:00',status:'confirmed'}];assert.ok(validate(base,s,USERS[2]));s.bookings=[];s.rooms[0].closedDates=[base.date];assert.ok(validate(base,s,USERS[0]));s.rooms[0].closedDates=[];assert.ok(validate({...base,end:'14:00'},s,USERS[0]));});
+test('member approval, manager approval bypass and edit ownership',()=>{const s=seedState('2026-10-23');assert.equal(planBookings({...base,room:2},s,USERS[0]).rows[0].status,'pending');assert.equal(planBookings({...base,room:2},s,USERS[1]).rows[0].status,'confirmed');assert.ok(planBookings(base,s,USERS[0],{...base,id:'x',owner:'u2',status:'confirmed'}).error);});
+test('no-show release respects 15 minutes and check-in',()=>{const s=seedState('2026-11-01');s.clock.time='10:14';s.bookings=[{...base,id:'a',status:'confirmed'},{...base,id:'b',status:'checked_in'}];assert.deepEqual(releaseNoShows(s),[]);s.clock.time='10:15';assert.deepEqual(releaseNoShows(s),['a']);});
