@@ -45,3 +45,9 @@
   .advanced-app .icon-button { min-width: 40px; min-height: 40px; }
   .advanced-app .sidebar.open { width: min(290px, 85vw); bottom: 0; }
 }
+.public-demo-note { display:flex; gap:16px; align-items:center; padding:16px 18px; margin-bottom:22px; border:1px solid #e1e4da; border-radius:6px; background:#fafbf8; }
+.public-demo-note > div { flex:1; }
+.public-demo-note b { font-size:13px; font-weight:500; }
+.public-demo-note p { font-size:12px; line-height:1.7; margin-top:4px; color:#68705e; }
+.public-demo-note a { font-size:12px; text-decoration:underline; white-space:nowrap; }
+@media(max-width:600px) { .public-demo-note { flex-wrap:wrap; gap:12px; } .public-demo-note > div { flex-basis:100%; } }

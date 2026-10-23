@@ -1,7 +1,7 @@
 import {minutes} from './booking.js';
 
 export const STORE_KEY='roomly-advanced-demo-v1';
-export const USERS=[{id:'u1',name:'ยศ · Product',role:'member',initials:'YO'},{id:'u2',name:'มิน · Office manager',role:'manager',initials:'MN'},{id:'u3',name:'แอดมิน · Workspace',role:'admin',initials:'AD'}];
+export const USERS=[{id:'u1',name:'สมาชิกตัวอย่าง · Product',role:'member',initials:'ME'},{id:'u2',name:'มิน · Office manager',role:'manager',initials:'MN'},{id:'u3',name:'แอดมิน · Workspace',role:'admin',initials:'AD'}];
 export const STATUS={confirmed:'ยืนยันแล้ว',pending:'รออนุมัติ',checked_in:'เช็กอินแล้ว',completed:'เสร็จสิ้น',cancelled:'ยกเลิก',rejected:'ไม่อนุมัติ',no_show:'ไม่มาใช้งาน'};
 export const active=b=>['confirmed','pending','checked_in'].includes(b.status);
 export const dateKey=(d=new Date())=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
@@ -45,3 +45,4 @@ export function planBookings(form,state,user,editing=null){
 }
 export function releaseNoShows(state){const now=new Date(`${state.clock.date}T${state.clock.time}`);return state.bookings.filter(b=>b.status==='confirmed'&&now-new Date(`${b.date}T${b.start}`)>=15*60000).map(b=>b.id);}
 export function summarize(state,start,end){const rows=state.bookings.filter(b=>b.date>=start&&b.date<=end);const valid=rows.filter(b=>!['cancelled','rejected','no_show'].includes(b.status));const days=Math.round((new Date(end+'T12:00')-new Date(start+'T12:00'))/86400000)+1;const available=state.rooms.filter(r=>r.enabled).reduce((n,r)=>{let openDays=0;for(let i=0;i<days;i++)if(!r.closedDates.includes(addDate(start,i)))openDays++;return n+openDays*(minutes(r.close)-minutes(r.open));},0);const booked=valid.reduce((n,b)=>n+minutes(b.end)-minutes(b.start),0);return {rows,valid,hours:booked/60,utilization:available?Math.round(booked/available*100):0,noShows:rows.filter(b=>b.status==='no_show').length};}
+
