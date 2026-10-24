@@ -1,0 +1,4 @@
+node_modules
+dist
+src/vendor/21st/*.original.tsx
+package-lock.json

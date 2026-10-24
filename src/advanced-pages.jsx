@@ -1,20 +1,1095 @@
-import React,{useState} from 'react';
-import {QRCodeSVG} from 'qrcode.react';
-import {ArrowUpRight,Plus,Users,Check,X,Clock,Download,RefreshCw,Link2,Monitor,ScanLine,Pencil,Trash2,ChevronLeft,ChevronRight,CalendarDays,GripVertical} from 'lucide-react';
-import {Badge,Dialog} from './advanced-ui';
-import {STATUS,active,addDate,dateKey,timeString,canManage,summarize} from './mock-model';
-import {minutes} from './booking';
+import React, { useState } from "react";
+import { QRCodeSVG } from "qrcode.react";
+import {
+  ArrowUpRight,
+  Plus,
+  Users,
+  Check,
+  X,
+  Clock,
+  Download,
+  RefreshCw,
+  Link2,
+  Monitor,
+  ScanLine,
+  Pencil,
+  Trash2,
+  ChevronLeft,
+  ChevronRight,
+  CalendarDays,
+  GripVertical,
+} from "lucide-react";
+import { Badge, Dialog } from "./advanced-ui";
+import {
+  STATUS,
+  active,
+  addDate,
+  dateKey,
+  timeString,
+  canManage,
+  summarize,
+} from "./mock-model";
+import { minutes } from "./booking";
 
-export function downloadFile(name,body,type='text/plain'){const url=URL.createObjectURL(new Blob([body],{type}));const a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
-export function exportCSV(state,start,end){const rows=state.bookings.filter(b=>b.date>=start&&b.date<=end);const safe=x=>'"'+String(/^[=+\-@]/.test(String(x))?"'"+x:x).replaceAll('"','""')+'"';downloadFile('roomly-bookings.csv','\uFEFF'+[['หัวข้อ','ห้อง','วันที่','เริ่ม','สิ้นสุด','ผู้จอง','คน','สถานะ'],...rows.map(b=>[b.title,state.rooms.find(r=>r.id===b.room)?.name,b.date,b.start,b.end,b.name,b.people,STATUS[b.status]])].map(row=>row.map(safe).join(',')).join('\r\n'),'text/csv;charset=utf-8');}
-export function Overview({state,onBook,onPage}){const day=state.clock.date;const stats=summarize(state,addDate(day,-6),day);const upcoming=state.bookings.filter(b=>active(b)&&b.date>=day).sort((a,b)=>(a.date+a.start).localeCompare(b.date+b.start)).slice(0,5);return <><div className="overview-banner"><div><span>WORKSPACE AT A GLANCE</span><h2>ทุกห้อง ทุกนัดหมาย<br/>อยู่ในพื้นที่เดียวกัน</h2><p>อาคาร A · {state.rooms.filter(r=>r.enabled).length} ห้องเปิดให้บริการ</p><button onClick={()=>onBook({date:day})}>สร้างการจอง <ArrowUpRight size={16}/></button></div><div className="banner-calendar"><span>DEMO CLOCK</span><b>{state.clock.time}</b><small>{day}</small><div><i/> ระบบจำลองพร้อมใช้งาน</div></div></div><div className="metric-grid"><Metric label="การจองวันนี้" value={state.bookings.filter(b=>b.date===day&&active(b)).length} note="เฉพาะรายการที่ยังใช้งาน"/><Metric label="รออนุมัติ" value={state.bookings.filter(b=>b.status==='pending').length} note="คิวที่ผู้ดูแลต้องตรวจสอบ"/><Metric label="ใช้งาน 7 วันล่าสุด" value={`${stats.hours.toFixed(1)} ชม.`} note="รวมรายการยืนยันและรออนุมัติ"/><Metric label="อัตราการใช้ห้อง" value={`${stats.utilization}%`} note="ช่วง 7 วัน · คำนวณจากข้อมูลจำลอง"/></div><div className="split-panels"><section className="panel"><div className="panel-heading"><h2>นัดหมายถัดไป</h2><button onClick={()=>onPage('calendar')}>ดูตาราง <ArrowUpRight size={14}/></button></div><div className="upcoming-list">{upcoming.map(b=><div key={b.id}><div className="date-tile"><b>{b.date.slice(-2)}</b><small>{b.start}</small></div><div className="grow"><b>{b.title}</b><p>{state.rooms.find(r=>r.id===b.room)?.name} · {b.name}</p></div><Badge status={b.status}/></div>)}{!upcoming.length&&<p className="empty">ยังไม่มีนัดหมายถัดไป</p>}</div></section><section className="panel"><div className="panel-heading"><h2>สถานะห้อง</h2><button onClick={()=>onPage('checkin')}>เปิดจอหน้าห้อง <ArrowUpRight size={14}/></button></div>{state.rooms.map(r=>{const current=state.bookings.find(b=>b.room===r.id&&b.date===day&&['confirmed','checked_in'].includes(b.status)&&minutes(b.start)<=minutes(state.clock.time)&&minutes(b.end)>minutes(state.clock.time));return <div className="room-status-line" key={r.id}><i className={'room-dot color-'+r.id}/><span>{r.name}</span><small>{!r.enabled||r.closedDates.includes(day)?'ปิดปรับปรุง':current?'มีการจอง':'ว่าง'}</small></div>;})}</section></div></>;}
-function Metric({label,value,note}){return <div className="metric"><span>{label}</span><b>{value}</b><small>{note}</small></div>;}
-export function Schedule({state,user,onBook,onEdit,onMove,onExtend}){const [date,setDate]=useState(state.clock.date),[view,setView]=useState('day'),[roomId,setRoomId]=useState('all');const d=new Date(date+'T12:00');d.setDate(d.getDate()-((d.getDay()+6)%7));const week=Array.from({length:7},(_,i)=>addDate(dateKey(d),i));const columns=view==='day'?state.rooms.filter(r=>roomId==='all'||r.id===Number(roomId)).map(r=>({key:r.id,room:r.id,date,name:r.name})):week.map(date=>({key:date,date,room:roomId==='all'?null:Number(roomId),name:new Date(date+'T12:00').toLocaleDateString('th-TH',{weekday:'short',day:'numeric'})}));const events=state.bookings.filter(b=>active(b));return <><div className="schedule-controls"><div className="segmented"><button className={view==='day'?'chosen':''} onClick={()=>setView('day')}>รายวัน</button><button className={view==='week'?'chosen':''} onClick={()=>setView('week')}>รายสัปดาห์</button></div><button className="secondary" onClick={()=>setDate(state.clock.date)}>วันนี้จำลอง</button><button className="icon-button" aria-label="ช่วงก่อนหน้า" onClick={()=>setDate(addDate(date,view==='day'?-1:-7))}><ChevronLeft size={16}/></button><input aria-label="วันที่ในตาราง" type="date" value={date} onChange={e=>e.target.value&&setDate(e.target.value)}/><button className="icon-button" aria-label="ช่วงถัดไป" onClick={()=>setDate(addDate(date,view==='day'?1:7))}><ChevronRight size={16}/></button><select aria-label="ห้องในตาราง" value={roomId} onChange={e=>setRoomId(e.target.value)}><option value="all">ทุกห้อง</option>{state.rooms.map(r=><option key={r.id} value={r.id}>{r.name}</option>)}</select></div><div className="calendar-help"><GripVertical size={14}/>ลากการจองไปยังช่องเวลาเพื่อย้าย · กด +30 เพื่อเพิ่มระยะเวลา · แตะรายการเพื่อแก้ไข</div><div className="advanced-calendar"><div className="advanced-calendar-grid" style={{'--cols':columns.length}}><div className="calendar-corner">GMT+7</div>{columns.map(c=><div className="advanced-column-title" key={c.key}><b>{c.name}</b><small>{view==='day'?`${state.rooms.find(r=>r.id===c.room).capacity} คน · ${c.date}`:c.date}</small></div>)}{Array.from({length:20},(_,i)=>{const time=timeString(480+i*30);return <React.Fragment key={time}><div className="time-cell">{i%2===0?time:''}</div>{columns.map(c=>{const rows=events.filter(b=>b.date===c.date&&(!c.room||b.room===c.room)&&minutes(b.start)>=minutes(time)&&minutes(b.start)<minutes(time)+30);const occupied=events.some(b=>b.date===c.date&&b.room===c.room&&minutes(b.start)<=minutes(time)&&minutes(b.end)>minutes(time));return <div className={'calendar-slot '+(occupied?'occupied':'')} key={c.key} onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();const id=e.dataTransfer.getData('text/plain');const b=events.find(b=>b.id===id);if(b)onMove(b,{date:c.date,start:time,room:c.room||b.room,end:timeString(minutes(time)+minutes(b.end)-minutes(b.start))});}}><button className="slot-add" aria-label={`จอง ${c.name} ${c.date} ${time}`} onClick={()=>onBook({room:c.room||state.rooms[0].id,date:c.date,start:time,end:timeString(minutes(time)+60)})}><Plus size={12}/></button>{rows.map(b=><div key={b.id} className={'advanced-event color-'+b.room} draggable={canManage(user,b)&&['confirmed','pending'].includes(b.status)} onDragStart={e=>e.dataTransfer.setData('text/plain',b.id)}><button onClick={()=>onEdit(b)}><span>{b.start}–{b.end}</span><b>{b.title}</b>{view==='week'&&<small>{state.rooms.find(r=>r.id===b.room)?.name}</small>}</button><div><Badge status={b.status}/>{canManage(user,b)&&['confirmed','pending'].includes(b.status)&&<button className="extend" aria-label={`เพิ่มเวลา ${b.title} 30 นาที`} onClick={()=>onExtend(b)}>+30</button>}</div></div>)}</div>;})}</React.Fragment>;})}</div></div></>;}
-export function Bookings({state,user,onEdit,onCancel,onCheckin}){const [status,setStatus]=useState('all'),[query,setQuery]=useState(''),[all,setAll]=useState(false);const list=state.bookings.filter(b=>(all&&user.role!=='member'||b.owner===user.id)&&(status==='all'||b.status===status)&&b.title.toLowerCase().includes(query.toLowerCase())).sort((a,b)=>(a.date+a.start).localeCompare(b.date+b.start));return <><div className="list-toolbar"><input placeholder="ค้นหาการจอง..." aria-label="ค้นหาการจอง" value={query} onChange={e=>setQuery(e.target.value)}/><select aria-label="สถานะการจอง" value={status} onChange={e=>setStatus(e.target.value)}><option value="all">ทุกสถานะ</option>{Object.entries(STATUS).map(([id,label])=><option key={id} value={id}>{label}</option>)}</select>{user.role!=='member'&&<label className="check-label"><input type="checkbox" checked={all} onChange={e=>setAll(e.target.checked)}/>แสดงของทุกคน</label>}</div><div className="data-table-wrap"><table className="data-table"><thead><tr><th>การประชุม</th><th>วัน / เวลา</th><th>ห้อง</th><th>สถานะ</th><th>จัดการ</th></tr></thead><tbody>{list.map(b=><tr key={b.id}><td><b>{b.title}</b><small>{b.name}{b.series?' · จองซ้ำ':''}{b.provider!=='none'?' · ประชุมออนไลน์จำลอง':''}</small></td><td>{b.date}<small>{b.start} – {b.end}</small></td><td>{state.rooms.find(r=>r.id===b.room)?.name}<small>{b.people} คน</small></td><td><Badge status={b.status}/></td><td><div className="table-actions">{['pending','confirmed'].includes(b.status)&&<button className="icon-button" aria-label={`แก้ไข ${b.title}`} onClick={()=>onEdit(b)}><Pencil size={14}/></button>}{active(b)&&<button className="icon-button" aria-label={`ยกเลิก ${b.title}`} onClick={()=>onCancel(b)}><Trash2 size={14}/></button>}{b.status==='confirmed'&&<button className="secondary" onClick={()=>onCheckin(b)}>เช็กอิน</button>}</div></td></tr>)}</tbody></table>{!list.length&&<p className="empty">ไม่มีรายการที่ตรงกับเงื่อนไข</p>}</div></>;}
-export function ApprovalQueue({state,onDecision}){const pending=state.bookings.filter(b=>b.status==='pending');const [notes,setNotes]=useState({});return <><div className="section-intro"><h2>{pending.length} รายการรออนุมัติ</h2><p>ตรวจรายละเอียดก่อนอนุมัติ ระบบจะบันทึกผู้ดำเนินการและเหตุผล</p></div><div className="approval-grid">{pending.map(b=><article className="panel approval-card" key={b.id}><div className="approval-top"><Badge status="pending"/><span>{b.date}</span></div><h3>{b.title}</h3><p>{state.rooms.find(r=>r.id===b.room)?.name} · {b.start}–{b.end}</p><div className="approval-person"><Users size={16}/>{b.name} · {b.people} คน</div><p className="muted">{b.notes||'ไม่มีบันทึกเพิ่มเติม'}</p><label>เหตุผล / หมายเหตุ<input value={notes[b.id]||''} onChange={e=>setNotes({...notes,[b.id]:e.target.value})} placeholder="จำเป็นเมื่อไม่อนุมัติ"/></label><div className="approval-actions"><button className="secondary" onClick={()=>onDecision(b,'rejected',notes[b.id])}><X size={14}/>ไม่อนุมัติ</button><button className="primary" onClick={()=>onDecision(b,'confirmed',notes[b.id])}><Check size={14}/>อนุมัติ</button></div></article>)}</div>{!pending.length&&<div className="empty"><Check size={30}/><h3>ไม่มีคำขอค้างอยู่</h3></div>}</>;}
-export function RoomCatalog({state,user,onBook,onEditRoom}){const [capacity,setCapacity]=useState(''),[equipment,setEquipment]=useState('');return <><div className="list-toolbar"><select aria-label="ความจุห้อง" value={capacity} onChange={e=>setCapacity(e.target.value)}><option value="">ทุกขนาด</option>{[4,8,12].map(n=><option key={n} value={n}>{n} คนขึ้นไป</option>)}</select><select aria-label="อุปกรณ์ห้อง" value={equipment} onChange={e=>setEquipment(e.target.value)}><option value="">อุปกรณ์ทั้งหมด</option>{['จอภาพ','วิดีโอคอล','ไวท์บอร์ด','โปรเจกเตอร์'].map(x=><option key={x}>{x}</option>)}</select></div><div className="room-grid">{state.rooms.filter(r=>(!capacity||r.capacity>=Number(capacity))&&(!equipment||r.equipment.includes(equipment))).map(r=><article className="room-card" key={r.id}><div className="room-image" style={{backgroundImage:`url(https://images.unsplash.com/${r.img}?auto=format&fit=crop&w=700&q=80)`}}><span>FLOOR {r.floor} · {r.enabled?'เปิดให้จอง':'ปิดให้บริการ'}</span></div><div className="room-card-title"><div><small>MEETING ROOM 0{r.id}</small><h2>{r.name}</h2></div><span><Users size={14}/>{r.capacity}</span></div><div className="equipment">{r.equipment.map(e=><span key={e}>{e}</span>)}</div><div className="room-policy"><span>{r.open}–{r.close}</span><span>{r.approval?'ต้องอนุมัติ':'ยืนยันอัตโนมัติ'}</span></div>{r.closedDates.length>0&&<p className="muted">วันปิด: {r.closedDates.join(', ')}</p>}<div className="room-card-footer">{user.role!=='member'?<button onClick={()=>onEditRoom(r)}><Pencil size={13}/>จัดการห้อง</button>:<span>สูงสุด {r.maxDuration} นาที</span>}<button disabled={!r.enabled} onClick={()=>onBook({room:r.id})}>จองห้อง <ArrowUpRight size={14}/></button></div></article>)}</div></>;}
-export function Checkin({state,user,onCheckin,onCheckout,onRelease,onClock}){const [roomId,setRoomId]=useState(state.rooms[0].id),[qr,setQr]=useState(null),[wall,setWall]=useState(false);const room=state.rooms.find(r=>r.id===Number(roomId));const current=state.bookings.filter(b=>b.room===room.id&&b.date===state.clock.date&&['confirmed','checked_in'].includes(b.status)).sort((a,b)=>a.start.localeCompare(b.start));const now=minutes(state.clock.time);const occupied=current.find(b=>minutes(b.start)<=now&&minutes(b.end)>now);return <><div className="schedule-controls"><select aria-label="ห้องเช็กอิน" value={roomId} onChange={e=>setRoomId(Number(e.target.value))}>{state.rooms.map(r=><option key={r.id} value={r.id}>{r.name}</option>)}</select><button className="secondary" onClick={()=>setWall(!wall)}><Monitor size={15}/>{wall?'ปิดจอหน้าห้อง':'จำลองจอหน้าห้อง'}</button>{user.role!=='member'&&<button className="secondary" onClick={onRelease}>ตรวจและปล่อยห้องที่ไม่มา</button>}</div><div className={'door-display '+(occupied?'busy':'')+(wall?' wall-mode':'')}><div><span>ROOM 0{room.id} / FLOOR {room.floor}</span><h2>{room.name}</h2><p>{!room.enabled||room.closedDates.includes(state.clock.date)?'ปิดปรับปรุง':occupied?'มีการจองในขณะนี้':'ห้องว่าง'}</p><b className="door-clock">{state.clock.time}</b><small>{state.clock.date} · นาฬิกาจำลอง</small></div><div className="door-next"><span>{occupied?'CURRENT MEETING':'NEXT MEETING'}</span><h3>{(occupied||current.find(b=>minutes(b.start)>now))?.title||'ยังไม่มีนัดหมายถัดไป'}</h3><p>{occupied?`${occupied.start} – ${occupied.end}`:'พร้อมสำหรับการประชุมครั้งถัดไป'}</p><div className="door-code"><QRCodeSVG value={`roomly-demo:room:${room.id}`} size={90} marginSize={2}/><p>QR ตัวอย่างสำหรับแสดงรหัสห้อง<br/>ไม่ได้เชื่อมกับบริการเช็กอินจริง</p></div></div></div><section className="panel checkin-list"><div className="panel-heading"><h2>การจองในวันที่เลือก</h2><span>เช็กอินได้ก่อนเริ่ม 15 นาที ถึงก่อนสิ้นสุด</span></div>{current.map(b=><div className="checkin-row" key={b.id}><div><b>{b.title}</b><p>{b.start}–{b.end} · {b.name}</p></div><Badge status={b.status}/>{canManage(user,b)&&(b.status==='confirmed'?<button className="secondary" onClick={()=>setQr(b)}><ScanLine size={14}/>QR เช็กอิน</button>:<button className="secondary" onClick={()=>onCheckout(b)}>เช็กเอาต์</button>)}</div>)}{!current.length&&<p className="empty">ไม่มีการจองที่ยืนยันแล้วในวันนี้</p>}</section>{qr&&<Dialog title="เช็กอินด้วย QR · จำลอง" onClose={()=>setQr(null)}><div className="qr-dialog"><QRCodeSVG value={`roomly-demo:checkin:${qr.id}`} size={200} marginSize={2}/><h3>{qr.title}</h3><p>{qr.date} · {qr.start}–{qr.end}</p><p className="muted">ใช้ปุ่มด้านล่างแทนการสแกน ไม่เปิดกล้องหรือส่งข้อมูลออก</p><button className="primary" onClick={()=>{if(onCheckin(qr))setQr(null);}}><ScanLine size={16}/>จำลองสแกนและเช็กอิน</button></div></Dialog>}</>;}
-export function Connections({state,onConnect,onSync}){const [provider,setProvider]=useState(null);return <><div className="simulation-callout"><Link2 size={18}/><div><b>Integration sandbox</b><p>ทุกการเชื่อมต่อและการซิงก์ในหน้านี้เป็นการจำลอง ไม่มี OAuth และไม่มีการส่งอีเมลจริง</p></div></div><div className="integration-grid">{[['google','Google Calendar','G','สร้างกิจกรรมและลิงก์ Google Meet จำลอง'],['outlook','Microsoft Outlook','M','สร้างกิจกรรมและลิงก์ Microsoft Teams จำลอง']].map(([id,name,mark,description])=><article className="panel integration-card" key={id}><div className={'provider-logo '+id}>{mark}</div><h2>{name}</h2><p>{description}</p><span className={'connection-state '+(state.connections[id]?'connected':'')}>{state.connections[id]?'เชื่อมต่อจำลองแล้ว':'ยังไม่เชื่อมต่อ'}</span><button className={state.connections[id]?'secondary':'primary'} onClick={()=>state.connections[id]?onConnect(id,false):setProvider(id)}>{state.connections[id]?'ตัดการเชื่อมต่อจำลอง':'เชื่อมต่อจำลอง'}<ArrowUpRight size={14}/></button></article>)}</div><section className="panel sync-panel"><div><h2>การซิงก์ปฏิทิน</h2><p>ล่าสุด: {state.lastSync?new Date(state.lastSync).toLocaleString('th-TH'):'ยังไม่เคยซิงก์'}</p></div><button className="secondary" disabled={!Object.values(state.connections).some(Boolean)} onClick={onSync}><RefreshCw size={15}/>จำลองซิงก์ตอนนี้</button></section>{provider&&<Dialog title="ยืนยันการเชื่อมต่อจำลอง" onClose={()=>setProvider(null)}><div className="integration-confirm"><p>บัญชีตัวอย่าง: demo@roomly.example</p><ul><li>จำลองอ่านตารางว่าง</li><li>จำลองสร้างกิจกรรม</li><li>จำลองเพิ่มลิงก์ประชุมออนไลน์</li></ul><p className="muted">ไม่มีการขอสิทธิ์เข้าถึงบัญชีจริง</p><button className="primary" onClick={()=>{onConnect(provider,true);setProvider(null);}}>เชื่อมต่อในโหมดสาธิต</button></div></Dialog>}</>;}
-export function Reports({state}){const [range,setRange]=useState('7');const end=state.clock.date,start=addDate(end,1-Number(range));const stats=summarize(state,start,end);const totals=state.rooms.map(r=>({...r,hours:stats.valid.filter(b=>b.room===r.id).reduce((n,b)=>n+(minutes(b.end)-minutes(b.start))/60,0)}));const max=Math.max(1,...totals.map(r=>r.hours));const peaks=Array.from({length:10},(_,i)=>({hour:i+8,count:stats.valid.filter(b=>minutes(b.start)<(i+9)*60&&minutes(b.end)>(i+8)*60).length}));const peakMax=Math.max(1,...peaks.map(p=>p.count));return <><div className="schedule-controls"><select aria-label="ช่วงรายงาน" value={range} onChange={e=>setRange(e.target.value)}><option value="7">7 วันล่าสุด</option><option value="30">30 วันล่าสุด</option></select><span className="muted">{start} — {end}</span><button className="secondary" onClick={()=>exportCSV(state,start,end)}><Download size={15}/>ส่งออก CSV</button></div><div className="metric-grid"><Metric label="การจองทั้งหมด" value={stats.rows.length} note="รวมทุกสถานะในช่วงที่เลือก"/><Metric label="ชั่วโมงที่จอง" value={stats.hours.toFixed(1)} note="ไม่รวมยกเลิก ปฏิเสธ และไม่มา"/><Metric label="อัตราการใช้ห้อง" value={stats.utilization+'%'} note="ชั่วโมงจอง / ชั่วโมงเปิดให้บริการ"/><Metric label="ไม่มาใช้งาน" value={stats.noShows} note="รายการที่ถูกปล่อยห้อง"/></div><div className="split-panels"><section className="panel report-panel"><h2>การใช้งานแยกตามห้อง</h2><p>ชั่วโมงการจองในช่วงที่เลือก</p>{totals.map(r=><div className="bar-row" key={r.id}><span>{r.name}</span><div><i style={{width:`${r.hours/max*100}%`}}/></div><b>{r.hours.toFixed(1)}</b></div>)}</section><section className="panel report-panel"><h2>ช่วงเวลาที่มีการจอง</h2><p>จำนวนการจองที่ทับกับแต่ละชั่วโมง</p><div className="peak-chart">{peaks.map(p=><div key={p.hour}><b>{p.count}</b><i style={{height:`${Math.max(2,p.count/peakMax*160)}px`}}/><span>{p.hour}</span></div>)}</div></section></div><p className="muted report-footnote">รายงานคำนวณจากข้อมูลจำลองจริงในเบราว์เซอร์ รวมรายการรออนุมัติในชั่วโมงจอง ไม่ใช่เวลาการเข้าห้องที่วัดจากอุปกรณ์</p></>;}
-export function Audit({state}){return <section className="panel"><div className="panel-heading"><h2>ประวัติการดำเนินการ</h2><span>{state.audit.length} เหตุการณ์</span></div><div className="audit-list">{state.audit.map(a=><div key={a.id}><span className="audit-dot"/><div><b>{a.action}</b><p>{a.detail}</p><small>{a.actor} · {new Date(a.time).toLocaleString('th-TH')}</small></div></div>)}{!state.audit.length&&<p className="empty">ลองจอง อนุมัติ หรือจัดการห้อง เพื่อดูประวัติที่นี่</p>}</div></section>;}
-export function Notifications({state,onRead,onRemind}){return <><div className="schedule-controls"><button className="secondary" onClick={()=>onRead('all')}>อ่านทั้งหมด</button><button className="secondary" onClick={onRemind}>จำลองแจ้งเตือนก่อนประชุม</button><span className="muted">ข้อความในแอปจำลอง ไม่มีอีเมลหรือ push จริง</span></div><section className="panel notifications-list">{state.notifications.map(n=><button className={!n.read?'unread':''} key={n.id} onClick={()=>onRead(n.id)}><span className="notification-dot"/><div><b>{n.title}</b><p>{n.body}</p><small>{new Date(n.time).toLocaleString('th-TH')}</small></div>{!n.read&&<span className="new-label">ใหม่</span>}</button>)}{!state.notifications.length&&<p className="empty">ยังไม่มีการแจ้งเตือน</p>}</section></>;}
+export function downloadFile(name, body, type = "text/plain") {
+  const url = URL.createObjectURL(new Blob([body], { type }));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = name;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+export function exportCSV(state, start, end) {
+  const rows = state.bookings.filter((b) => b.date >= start && b.date <= end);
+  const safe = (x) =>
+    '"' +
+    String(/^[=+\-@]/.test(String(x)) ? "'" + x : x).replaceAll('"', '""') +
+    '"';
+  downloadFile(
+    "roomly-bookings.csv",
+    "\uFEFF" +
+      [
+        [
+          "หัวข้อ",
+          "ห้อง",
+          "วันที่",
+          "เริ่ม",
+          "สิ้นสุด",
+          "ผู้จอง",
+          "คน",
+          "สถานะ",
+        ],
+        ...rows.map((b) => [
+          b.title,
+          state.rooms.find((r) => r.id === b.room)?.name,
+          b.date,
+          b.start,
+          b.end,
+          b.name,
+          b.people,
+          STATUS[b.status],
+        ]),
+      ]
+        .map((row) => row.map(safe).join(","))
+        .join("\r\n"),
+    "text/csv;charset=utf-8",
+  );
+}
+export function Overview({ state, onBook, onPage }) {
+  const day = state.clock.date;
+  const stats = summarize(state, addDate(day, -6), day);
+  const upcoming = state.bookings
+    .filter((b) => active(b) && b.date >= day)
+    .sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start))
+    .slice(0, 5);
+  return (
+    <>
+      <div className="overview-banner">
+        <div>
+          <span>WORKSPACE AT A GLANCE</span>
+          <h2>วันนี้ประชุมที่ไหนดี</h2>
+          <p>
+            อาคาร A · {state.rooms.filter((r) => r.enabled).length}{" "}
+            ห้องเปิดให้บริการ
+          </p>
+          <button onClick={() => onBook({ date: day })}>
+            สร้างการจอง <ArrowUpRight size={16} />
+          </button>
+        </div>
+        <div className="banner-calendar">
+          <span>เวลาที่แสดง</span>
+          <b>{state.clock.time}</b>
+          <small>{day}</small>
+          <div>
+            <i /> Bangkok Office
+          </div>
+        </div>
+      </div>
+      <div className="metric-grid">
+        <Metric
+          label="การจองวันนี้"
+          value={
+            state.bookings.filter((b) => b.date === day && active(b)).length
+          }
+          note="เฉพาะรายการที่ยังใช้งาน"
+        />
+        <Metric
+          label="รออนุมัติ"
+          value={state.bookings.filter((b) => b.status === "pending").length}
+          note="คิวที่ผู้ดูแลต้องตรวจสอบ"
+        />
+        <Metric
+          label="ใช้งาน 7 วันล่าสุด"
+          value={`${stats.hours.toFixed(1)} ชม.`}
+          note="รวมรายการยืนยันและรออนุมัติ"
+        />
+        <Metric
+          label="อัตราการใช้ห้อง"
+          value={`${stats.utilization}%`}
+          note="ช่วง 7 วันที่ผ่านมา"
+        />
+      </div>
+      <div className="split-panels">
+        <section className="panel">
+          <div className="panel-heading">
+            <h2>นัดหมายถัดไป</h2>
+            <button onClick={() => onPage("calendar")}>
+              ดูตาราง <ArrowUpRight size={14} />
+            </button>
+          </div>
+          <div className="upcoming-list">
+            {upcoming.map((b) => (
+              <div key={b.id}>
+                <div className="date-tile">
+                  <b>{b.date.slice(-2)}</b>
+                  <small>{b.start}</small>
+                </div>
+                <div className="grow">
+                  <b>{b.title}</b>
+                  <p>
+                    {state.rooms.find((r) => r.id === b.room)?.name} · {b.name}
+                  </p>
+                </div>
+                <Badge status={b.status} />
+              </div>
+            ))}
+            {!upcoming.length && <p className="empty">ยังไม่มีนัดหมายถัดไป</p>}
+          </div>
+        </section>
+        <section className="panel">
+          <div className="panel-heading">
+            <h2>สถานะห้อง</h2>
+            <button onClick={() => onPage("checkin")}>
+              เปิดจอหน้าห้อง <ArrowUpRight size={14} />
+            </button>
+          </div>
+          {state.rooms.map((r) => {
+            const current = state.bookings.find(
+              (b) =>
+                b.room === r.id &&
+                b.date === day &&
+                ["confirmed", "checked_in"].includes(b.status) &&
+                minutes(b.start) <= minutes(state.clock.time) &&
+                minutes(b.end) > minutes(state.clock.time),
+            );
+            return (
+              <div className="room-status-line" key={r.id}>
+                <i className={"room-dot color-" + r.id} />
+                <span>{r.name}</span>
+                <small>
+                  {!r.enabled || r.closedDates.includes(day)
+                    ? "ปิดปรับปรุง"
+                    : current
+                      ? "มีการจอง"
+                      : "ว่าง"}
+                </small>
+              </div>
+            );
+          })}
+        </section>
+      </div>
+    </>
+  );
+}
+function Metric({ label, value, note }) {
+  return (
+    <div className="metric">
+      <span>{label}</span>
+      <b>{value}</b>
+      <small>{note}</small>
+    </div>
+  );
+}
+export function Schedule({ state, user, onBook, onEdit, onMove, onExtend }) {
+  const [date, setDate] = useState(state.clock.date),
+    [view, setView] = useState("day"),
+    [roomId, setRoomId] = useState("all");
+  const d = new Date(date + "T12:00");
+  d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+  const week = Array.from({ length: 7 }, (_, i) => addDate(dateKey(d), i));
+  const columns =
+    view === "day"
+      ? state.rooms
+          .filter((r) => roomId === "all" || r.id === Number(roomId))
+          .map((r) => ({ key: r.id, room: r.id, date, name: r.name }))
+      : week.map((date) => ({
+          key: date,
+          date,
+          room: roomId === "all" ? null : Number(roomId),
+          name: new Date(date + "T12:00").toLocaleDateString("th-TH", {
+            weekday: "short",
+            day: "numeric",
+          }),
+        }));
+  const events = state.bookings.filter((b) => active(b));
+  return (
+    <>
+      <div className="schedule-controls">
+        <div className="segmented">
+          <button
+            className={view === "day" ? "chosen" : ""}
+            onClick={() => setView("day")}
+          >
+            รายวัน
+          </button>
+          <button
+            className={view === "week" ? "chosen" : ""}
+            onClick={() => setView("week")}
+          >
+            รายสัปดาห์
+          </button>
+        </div>
+        <button className="secondary" onClick={() => setDate(state.clock.date)}>
+          วันนี้
+        </button>
+        <button
+          className="icon-button"
+          aria-label="ช่วงก่อนหน้า"
+          onClick={() => setDate(addDate(date, view === "day" ? -1 : -7))}
+        >
+          <ChevronLeft size={16} />
+        </button>
+        <input
+          aria-label="วันที่ในตาราง"
+          type="date"
+          value={date}
+          onChange={(e) => e.target.value && setDate(e.target.value)}
+        />
+        <button
+          className="icon-button"
+          aria-label="ช่วงถัดไป"
+          onClick={() => setDate(addDate(date, view === "day" ? 1 : 7))}
+        >
+          <ChevronRight size={16} />
+        </button>
+        <select
+          aria-label="ห้องในตาราง"
+          value={roomId}
+          onChange={(e) => setRoomId(e.target.value)}
+        >
+          <option value="all">ทุกห้อง</option>
+          {state.rooms.map((r) => (
+            <option key={r.id} value={r.id}>
+              {r.name}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div className="calendar-help">
+        <GripVertical size={14} />
+        ลากการจองไปยังช่องเวลาเพื่อย้าย · กด +30 เพื่อเพิ่มระยะเวลา ·
+        แตะรายการเพื่อแก้ไข
+      </div>
+      <div className="advanced-calendar">
+        <div
+          className="advanced-calendar-grid"
+          style={{ "--cols": columns.length }}
+        >
+          <div className="calendar-corner">GMT+7</div>
+          {columns.map((c) => (
+            <div className="advanced-column-title" key={c.key}>
+              <b>{c.name}</b>
+              <small>
+                {view === "day"
+                  ? `${state.rooms.find((r) => r.id === c.room).capacity} คน · ${c.date}`
+                  : c.date}
+              </small>
+            </div>
+          ))}
+          {Array.from({ length: 20 }, (_, i) => {
+            const time = timeString(480 + i * 30);
+            return (
+              <React.Fragment key={time}>
+                <div className="time-cell">{i % 2 === 0 ? time : ""}</div>
+                {columns.map((c) => {
+                  const rows = events.filter(
+                    (b) =>
+                      b.date === c.date &&
+                      (!c.room || b.room === c.room) &&
+                      minutes(b.start) >= minutes(time) &&
+                      minutes(b.start) < minutes(time) + 30,
+                  );
+                  const occupied = events.some(
+                    (b) =>
+                      b.date === c.date &&
+                      b.room === c.room &&
+                      minutes(b.start) <= minutes(time) &&
+                      minutes(b.end) > minutes(time),
+                  );
+                  return (
+                    <div
+                      className={
+                        "calendar-slot " + (occupied ? "occupied" : "")
+                      }
+                      key={c.key}
+                      onDragOver={(e) => e.preventDefault()}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        const id = e.dataTransfer.getData("text/plain");
+                        const b = events.find((b) => b.id === id);
+                        if (b)
+                          onMove(b, {
+                            date: c.date,
+                            start: time,
+                            room: c.room || b.room,
+                            end: timeString(
+                              minutes(time) + minutes(b.end) - minutes(b.start),
+                            ),
+                          });
+                      }}
+                    >
+                      <button
+                        className="slot-add"
+                        aria-label={`จอง ${c.name} ${c.date} ${time}`}
+                        onClick={() =>
+                          onBook({
+                            room: c.room || state.rooms[0].id,
+                            date: c.date,
+                            start: time,
+                            end: timeString(minutes(time) + 60),
+                          })
+                        }
+                      >
+                        <Plus size={12} />
+                      </button>
+                      {rows.map((b) => (
+                        <div
+                          key={b.id}
+                          className={"advanced-event color-" + b.room}
+                          draggable={
+                            canManage(user, b) &&
+                            ["confirmed", "pending"].includes(b.status)
+                          }
+                          onDragStart={(e) =>
+                            e.dataTransfer.setData("text/plain", b.id)
+                          }
+                        >
+                          <button onClick={() => onEdit(b)}>
+                            <span>
+                              {b.start}–{b.end}
+                            </span>
+                            <b>{b.title}</b>
+                            {view === "week" && (
+                              <small>
+                                {state.rooms.find((r) => r.id === b.room)?.name}
+                              </small>
+                            )}
+                          </button>
+                          <div>
+                            <Badge status={b.status} />
+                            {canManage(user, b) &&
+                              ["confirmed", "pending"].includes(b.status) && (
+                                <button
+                                  className="extend"
+                                  aria-label={`เพิ่มเวลา ${b.title} 30 นาที`}
+                                  onClick={() => onExtend(b)}
+                                >
+                                  +30
+                                </button>
+                              )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })}
+              </React.Fragment>
+            );
+          })}
+        </div>
+      </div>
+    </>
+  );
+}
+export function Bookings({ state, user, onEdit, onCancel, onCheckin }) {
+  const [status, setStatus] = useState("all"),
+    [query, setQuery] = useState(""),
+    [all, setAll] = useState(false);
+  const list = state.bookings
+    .filter(
+      (b) =>
+        ((all && user.role !== "member") || b.owner === user.id) &&
+        (status === "all" || b.status === status) &&
+        b.title.toLowerCase().includes(query.toLowerCase()),
+    )
+    .sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start));
+  return (
+    <>
+      <div className="list-toolbar">
+        <input
+          placeholder="ค้นหาการจอง..."
+          aria-label="ค้นหาการจอง"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+        />
+        <select
+          aria-label="สถานะการจอง"
+          value={status}
+          onChange={(e) => setStatus(e.target.value)}
+        >
+          <option value="all">ทุกสถานะ</option>
+          {Object.entries(STATUS).map(([id, label]) => (
+            <option key={id} value={id}>
+              {label}
+            </option>
+          ))}
+        </select>
+        {user.role !== "member" && (
+          <label className="check-label">
+            <input
+              type="checkbox"
+              checked={all}
+              onChange={(e) => setAll(e.target.checked)}
+            />
+            แสดงของทุกคน
+          </label>
+        )}
+      </div>
+      <div className="data-table-wrap">
+        <table className="data-table">
+          <thead>
+            <tr>
+              <th>การประชุม</th>
+              <th>วัน / เวลา</th>
+              <th>ห้อง</th>
+              <th>สถานะ</th>
+              <th>จัดการ</th>
+            </tr>
+          </thead>
+          <tbody>
+            {list.map((b) => (
+              <tr key={b.id}>
+                <td>
+                  <b>{b.title}</b>
+                  <small>
+                    {b.name}
+                    {b.series ? " · จองซ้ำ" : ""}
+                    {b.provider !== "none" ? " · ประชุมออนไลน์จำลอง" : ""}
+                  </small>
+                </td>
+                <td>
+                  {b.date}
+                  <small>
+                    {b.start} – {b.end}
+                  </small>
+                </td>
+                <td>
+                  {state.rooms.find((r) => r.id === b.room)?.name}
+                  <small>{b.people} คน</small>
+                </td>
+                <td>
+                  <Badge status={b.status} />
+                </td>
+                <td>
+                  <div className="table-actions">
+                    {["pending", "confirmed"].includes(b.status) && (
+                      <button
+                        className="icon-button"
+                        aria-label={`แก้ไข ${b.title}`}
+                        onClick={() => onEdit(b)}
+                      >
+                        <Pencil size={14} />
+                      </button>
+                    )}
+                    {active(b) && (
+                      <button
+                        className="icon-button"
+                        aria-label={`ยกเลิก ${b.title}`}
+                        onClick={() => onCancel(b)}
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    )}
+                    {b.status === "confirmed" && (
+                      <button
+                        className="secondary"
+                        onClick={() => onCheckin(b)}
+                      >
+                        เช็กอิน
+                      </button>
+                    )}
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {!list.length && <p className="empty">ไม่มีรายการที่ตรงกับเงื่อนไข</p>}
+      </div>
+    </>
+  );
+}
+export function ApprovalQueue({ state, onDecision }) {
+  const pending = state.bookings.filter((b) => b.status === "pending");
+  const [notes, setNotes] = useState({});
+  return (
+    <>
+      <div className="section-intro">
+        <h2>{pending.length} รายการรออนุมัติ</h2>
+        <p>ตรวจรายละเอียดก่อนอนุมัติ ระบบจะบันทึกผู้ดำเนินการและเหตุผล</p>
+      </div>
+      <div className="approval-grid">
+        {pending.map((b) => (
+          <article className="panel approval-card" key={b.id}>
+            <div className="approval-top">
+              <Badge status="pending" />
+              <span>{b.date}</span>
+            </div>
+            <h3>{b.title}</h3>
+            <p>
+              {state.rooms.find((r) => r.id === b.room)?.name} · {b.start}–
+              {b.end}
+            </p>
+            <div className="approval-person">
+              <Users size={16} />
+              {b.name} · {b.people} คน
+            </div>
+            <p className="muted">{b.notes || "ไม่มีบันทึกเพิ่มเติม"}</p>
+            <label>
+              เหตุผล / หมายเหตุ
+              <input
+                value={notes[b.id] || ""}
+                onChange={(e) => setNotes({ ...notes, [b.id]: e.target.value })}
+                placeholder="จำเป็นเมื่อไม่อนุมัติ"
+              />
+            </label>
+            <div className="approval-actions">
+              <button
+                className="secondary"
+                onClick={() => onDecision(b, "rejected", notes[b.id])}
+              >
+                <X size={14} />
+                ไม่อนุมัติ
+              </button>
+              <button
+                className="primary"
+                onClick={() => onDecision(b, "confirmed", notes[b.id])}
+              >
+                <Check size={14} />
+                อนุมัติ
+              </button>
+            </div>
+          </article>
+        ))}
+      </div>
+      {!pending.length && (
+        <div className="empty">
+          <Check size={30} />
+          <h3>ไม่มีคำขอค้างอยู่</h3>
+        </div>
+      )}
+    </>
+  );
+}
+export function RoomCatalog({ state, user, onBook, onEditRoom }) {
+  const [capacity, setCapacity] = useState(""),
+    [equipment, setEquipment] = useState("");
+  return (
+    <>
+      <div className="list-toolbar">
+        <select
+          aria-label="ความจุห้อง"
+          value={capacity}
+          onChange={(e) => setCapacity(e.target.value)}
+        >
+          <option value="">ทุกขนาด</option>
+          {[4, 8, 12].map((n) => (
+            <option key={n} value={n}>
+              {n} คนขึ้นไป
+            </option>
+          ))}
+        </select>
+        <select
+          aria-label="อุปกรณ์ห้อง"
+          value={equipment}
+          onChange={(e) => setEquipment(e.target.value)}
+        >
+          <option value="">อุปกรณ์ทั้งหมด</option>
+          {["จอภาพ", "วิดีโอคอล", "ไวท์บอร์ด", "โปรเจกเตอร์"].map((x) => (
+            <option key={x}>{x}</option>
+          ))}
+        </select>
+      </div>
+      <div className="room-grid">
+        {state.rooms
+          .filter(
+            (r) =>
+              (!capacity || r.capacity >= Number(capacity)) &&
+              (!equipment || r.equipment.includes(equipment)),
+          )
+          .map((r) => (
+            <article className="room-card" key={r.id}>
+              <div
+                className="room-image"
+                style={{
+                  backgroundImage: `url(https://images.unsplash.com/${r.img}?auto=format&fit=crop&w=700&q=80)`,
+                }}
+              >
+                <span>
+                  FLOOR {r.floor} · {r.enabled ? "เปิดให้จอง" : "ปิดให้บริการ"}
+                </span>
+              </div>
+              <div className="room-card-title">
+                <div>
+                  <small>MEETING ROOM 0{r.id}</small>
+                  <h2>{r.name}</h2>
+                </div>
+                <span>
+                  <Users size={14} />
+                  {r.capacity}
+                </span>
+              </div>
+              <div className="equipment">
+                {r.equipment.map((e) => (
+                  <span key={e}>{e}</span>
+                ))}
+              </div>
+              <div className="room-policy">
+                <span>
+                  {r.open}–{r.close}
+                </span>
+                <span>{r.approval ? "ต้องอนุมัติ" : "ยืนยันอัตโนมัติ"}</span>
+              </div>
+              {r.closedDates.length > 0 && (
+                <p className="muted">วันปิด: {r.closedDates.join(", ")}</p>
+              )}
+              <div className="room-card-footer">
+                {user.role !== "member" ? (
+                  <button onClick={() => onEditRoom(r)}>
+                    <Pencil size={13} />
+                    จัดการห้อง
+                  </button>
+                ) : (
+                  <span>สูงสุด {r.maxDuration} นาที</span>
+                )}
+                <button
+                  disabled={!r.enabled}
+                  onClick={() => onBook({ room: r.id })}
+                >
+                  จองห้อง <ArrowUpRight size={14} />
+                </button>
+              </div>
+            </article>
+          ))}
+      </div>
+    </>
+  );
+}
+export function Checkin({
+  state,
+  user,
+  onCheckin,
+  onCheckout,
+  onRelease,
+  onClock,
+}) {
+  const [roomId, setRoomId] = useState(state.rooms[0].id),
+    [qr, setQr] = useState(null),
+    [wall, setWall] = useState(false);
+  const room = state.rooms.find((r) => r.id === Number(roomId));
+  const current = state.bookings
+    .filter(
+      (b) =>
+        b.room === room.id &&
+        b.date === state.clock.date &&
+        ["confirmed", "checked_in"].includes(b.status),
+    )
+    .sort((a, b) => a.start.localeCompare(b.start));
+  const now = minutes(state.clock.time);
+  const occupied = current.find(
+    (b) => minutes(b.start) <= now && minutes(b.end) > now,
+  );
+  return (
+    <>
+      <div className="schedule-controls">
+        <select
+          aria-label="ห้องเช็กอิน"
+          value={roomId}
+          onChange={(e) => setRoomId(Number(e.target.value))}
+        >
+          {state.rooms.map((r) => (
+            <option key={r.id} value={r.id}>
+              {r.name}
+            </option>
+          ))}
+        </select>
+        <button className="secondary" onClick={() => setWall(!wall)}>
+          <Monitor size={15} />
+          {wall ? "ปิดจอหน้าห้อง" : "จำลองจอหน้าห้อง"}
+        </button>
+        {user.role !== "member" && (
+          <button className="secondary" onClick={onRelease}>
+            ตรวจและปล่อยห้องที่ไม่มา
+          </button>
+        )}
+      </div>
+      <div
+        className={
+          "door-display " +
+          (occupied ? "busy" : "") +
+          (wall ? " wall-mode" : "")
+        }
+      >
+        <div>
+          <span>
+            ROOM 0{room.id} / FLOOR {room.floor}
+          </span>
+          <h2>{room.name}</h2>
+          <p>
+            {!room.enabled || room.closedDates.includes(state.clock.date)
+              ? "ปิดปรับปรุง"
+              : occupied
+                ? "มีการจองในขณะนี้"
+                : "ห้องว่าง"}
+          </p>
+          <b className="door-clock">{state.clock.time}</b>
+          <small>{state.clock.date} · นาฬิกาจำลอง</small>
+        </div>
+        <div className="door-next">
+          <span>{occupied ? "CURRENT MEETING" : "NEXT MEETING"}</span>
+          <h3>
+            {(occupied || current.find((b) => minutes(b.start) > now))?.title ||
+              "ยังไม่มีนัดหมายถัดไป"}
+          </h3>
+          <p>
+            {occupied
+              ? `${occupied.start} – ${occupied.end}`
+              : "พร้อมสำหรับการประชุมครั้งถัดไป"}
+          </p>
+          <div className="door-code">
+            <QRCodeSVG
+              value={`roomly-demo:room:${room.id}`}
+              size={90}
+              marginSize={2}
+            />
+            <p>
+              QR ตัวอย่างสำหรับแสดงรหัสห้อง
+              <br />
+              ไม่ได้เชื่อมกับบริการเช็กอินจริง
+            </p>
+          </div>
+        </div>
+      </div>
+      <section className="panel checkin-list">
+        <div className="panel-heading">
+          <h2>การจองในวันที่เลือก</h2>
+          <span>เช็กอินได้ก่อนเริ่ม 15 นาที ถึงก่อนสิ้นสุด</span>
+        </div>
+        {current.map((b) => (
+          <div className="checkin-row" key={b.id}>
+            <div>
+              <b>{b.title}</b>
+              <p>
+                {b.start}–{b.end} · {b.name}
+              </p>
+            </div>
+            <Badge status={b.status} />
+            {canManage(user, b) &&
+              (b.status === "confirmed" ? (
+                <button className="secondary" onClick={() => setQr(b)}>
+                  <ScanLine size={14} />
+                  QR เช็กอิน
+                </button>
+              ) : (
+                <button className="secondary" onClick={() => onCheckout(b)}>
+                  เช็กเอาต์
+                </button>
+              ))}
+          </div>
+        ))}
+        {!current.length && (
+          <p className="empty">ไม่มีการจองที่ยืนยันแล้วในวันนี้</p>
+        )}
+      </section>
+      {qr && (
+        <Dialog title="เช็กอินด้วย QR · จำลอง" onClose={() => setQr(null)}>
+          <div className="qr-dialog">
+            <QRCodeSVG
+              value={`roomly-demo:checkin:${qr.id}`}
+              size={200}
+              marginSize={2}
+            />
+            <h3>{qr.title}</h3>
+            <p>
+              {qr.date} · {qr.start}–{qr.end}
+            </p>
+            <p className="muted">
+              ใช้ปุ่มด้านล่างแทนการสแกน ไม่เปิดกล้องหรือส่งข้อมูลออก
+            </p>
+            <button
+              className="primary"
+              onClick={() => {
+                if (onCheckin(qr)) setQr(null);
+              }}
+            >
+              <ScanLine size={16} />
+              จำลองสแกนและเช็กอิน
+            </button>
+          </div>
+        </Dialog>
+      )}
+    </>
+  );
+}
+export function Connections({ state, onConnect, onSync }) {
+  const [provider, setProvider] = useState(null);
+  return (
+    <>
+      <div className="simulation-callout">
+        <Link2 size={18} />
+        <div>
+          <b>Integration sandbox</b>
+          <p>
+            ทุกการเชื่อมต่อและการซิงก์ในหน้านี้เป็นการจำลอง ไม่มี OAuth
+            และไม่มีการส่งอีเมลจริง
+          </p>
+        </div>
+      </div>
+      <div className="integration-grid">
+        {[
+          [
+            "google",
+            "Google Calendar",
+            "G",
+            "สร้างกิจกรรมและลิงก์ Google Meet จำลอง",
+          ],
+          [
+            "outlook",
+            "Microsoft Outlook",
+            "M",
+            "สร้างกิจกรรมและลิงก์ Microsoft Teams จำลอง",
+          ],
+        ].map(([id, name, mark, description]) => (
+          <article className="panel integration-card" key={id}>
+            <div className={"provider-logo " + id}>{mark}</div>
+            <h2>{name}</h2>
+            <p>{description}</p>
+            <span
+              className={
+                "connection-state " + (state.connections[id] ? "connected" : "")
+              }
+            >
+              {state.connections[id] ? "เชื่อมต่อจำลองแล้ว" : "ยังไม่เชื่อมต่อ"}
+            </span>
+            <button
+              className={state.connections[id] ? "secondary" : "primary"}
+              onClick={() =>
+                state.connections[id] ? onConnect(id, false) : setProvider(id)
+              }
+            >
+              {state.connections[id]
+                ? "ตัดการเชื่อมต่อจำลอง"
+                : "เชื่อมต่อจำลอง"}
+              <ArrowUpRight size={14} />
+            </button>
+          </article>
+        ))}
+      </div>
+      <section className="panel sync-panel">
+        <div>
+          <h2>การซิงก์ปฏิทิน</h2>
+          <p>
+            ล่าสุด:{" "}
+            {state.lastSync
+              ? new Date(state.lastSync).toLocaleString("th-TH")
+              : "ยังไม่เคยซิงก์"}
+          </p>
+        </div>
+        <button
+          className="secondary"
+          disabled={!Object.values(state.connections).some(Boolean)}
+          onClick={onSync}
+        >
+          <RefreshCw size={15} />
+          จำลองซิงก์ตอนนี้
+        </button>
+      </section>
+      {provider && (
+        <Dialog
+          title="ยืนยันการเชื่อมต่อจำลอง"
+          onClose={() => setProvider(null)}
+        >
+          <div className="integration-confirm">
+            <p>บัญชีตัวอย่าง: demo@roomly.example</p>
+            <ul>
+              <li>จำลองอ่านตารางว่าง</li>
+              <li>จำลองสร้างกิจกรรม</li>
+              <li>จำลองเพิ่มลิงก์ประชุมออนไลน์</li>
+            </ul>
+            <p className="muted">ไม่มีการขอสิทธิ์เข้าถึงบัญชีจริง</p>
+            <button
+              className="primary"
+              onClick={() => {
+                onConnect(provider, true);
+                setProvider(null);
+              }}
+            >
+              เชื่อมต่อในโหมดสาธิต
+            </button>
+          </div>
+        </Dialog>
+      )}
+    </>
+  );
+}
+export function Reports({ state }) {
+  const [range, setRange] = useState("7");
+  const end = state.clock.date,
+    start = addDate(end, 1 - Number(range));
+  const stats = summarize(state, start, end);
+  const totals = state.rooms.map((r) => ({
+    ...r,
+    hours: stats.valid
+      .filter((b) => b.room === r.id)
+      .reduce((n, b) => n + (minutes(b.end) - minutes(b.start)) / 60, 0),
+  }));
+  const max = Math.max(1, ...totals.map((r) => r.hours));
+  const peaks = Array.from({ length: 10 }, (_, i) => ({
+    hour: i + 8,
+    count: stats.valid.filter(
+      (b) => minutes(b.start) < (i + 9) * 60 && minutes(b.end) > (i + 8) * 60,
+    ).length,
+  }));
+  const peakMax = Math.max(1, ...peaks.map((p) => p.count));
+  return (
+    <>
+      <div className="schedule-controls">
+        <select
+          aria-label="ช่วงรายงาน"
+          value={range}
+          onChange={(e) => setRange(e.target.value)}
+        >
+          <option value="7">7 วันล่าสุด</option>
+          <option value="30">30 วันล่าสุด</option>
+        </select>
+        <span className="muted">
+          {start} — {end}
+        </span>
+        <button
+          className="secondary"
+          onClick={() => exportCSV(state, start, end)}
+        >
+          <Download size={15} />
+          ส่งออก CSV
+        </button>
+      </div>
+      <div className="metric-grid">
+        <Metric
+          label="การจองทั้งหมด"
+          value={stats.rows.length}
+          note="รวมทุกสถานะในช่วงที่เลือก"
+        />
+        <Metric
+          label="ชั่วโมงที่จอง"
+          value={stats.hours.toFixed(1)}
+          note="ไม่รวมยกเลิก ปฏิเสธ และไม่มา"
+        />
+        <Metric
+          label="อัตราการใช้ห้อง"
+          value={stats.utilization + "%"}
+          note="ชั่วโมงจอง / ชั่วโมงเปิดให้บริการ"
+        />
+        <Metric
+          label="ไม่มาใช้งาน"
+          value={stats.noShows}
+          note="รายการที่ถูกปล่อยห้อง"
+        />
+      </div>
+      <div className="split-panels">
+        <section className="panel report-panel">
+          <h2>การใช้งานแยกตามห้อง</h2>
+          <p>ชั่วโมงการจองในช่วงที่เลือก</p>
+          {totals.map((r) => (
+            <div className="bar-row" key={r.id}>
+              <span>{r.name}</span>
+              <div>
+                <i style={{ width: `${(r.hours / max) * 100}%` }} />
+              </div>
+              <b>{r.hours.toFixed(1)}</b>
+            </div>
+          ))}
+        </section>
+        <section className="panel report-panel">
+          <h2>ช่วงเวลาที่มีการจอง</h2>
+          <p>จำนวนการจองที่ทับกับแต่ละชั่วโมง</p>
+          <div className="peak-chart">
+            {peaks.map((p) => (
+              <div key={p.hour}>
+                <b>{p.count}</b>
+                <i
+                  style={{
+                    height: `${Math.max(2, (p.count / peakMax) * 160)}px`,
+                  }}
+                />
+                <span>{p.hour}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+      </div>
+      <p className="muted report-footnote">
+        ชั่วโมงการจองรวมรายการรออนุมัติ และไม่ใช่ระยะเวลาใช้งานจริง
+      </p>
+    </>
+  );
+}
+export function Audit({ state }) {
+  return (
+    <section className="panel">
+      <div className="panel-heading">
+        <h2>ประวัติการดำเนินการ</h2>
+        <span>{state.audit.length} เหตุการณ์</span>
+      </div>
+      <div className="audit-list">
+        {state.audit.map((a) => (
+          <div key={a.id}>
+            <span className="audit-dot" />
+            <div>
+              <b>{a.action}</b>
+              <p>{a.detail}</p>
+              <small>
+                {a.actor} · {new Date(a.time).toLocaleString("th-TH")}
+              </small>
+            </div>
+          </div>
+        ))}
+        {!state.audit.length && (
+          <p className="empty">
+            ลองจอง อนุมัติ หรือจัดการห้อง เพื่อดูประวัติที่นี่
+          </p>
+        )}
+      </div>
+    </section>
+  );
+}
+export function Notifications({ state, onRead }) {
+  return (
+    <>
+      <div className="schedule-controls">
+        <button className="secondary" onClick={() => onRead("all")}>
+          อ่านทั้งหมด
+        </button>
+      </div>
+      <section className="panel notifications-list">
+        {state.notifications.map((n) => (
+          <button
+            className={!n.read ? "unread" : ""}
+            key={n.id}
+            onClick={() => onRead(n.id)}
+          >
+            <span className="notification-dot" />
+            <div>
+              <b>{n.title}</b>
+              <p>{n.body}</p>
+              <small>{new Date(n.time).toLocaleString("th-TH")}</small>
+            </div>
+            {!n.read && <span className="new-label">ใหม่</span>}
+          </button>
+        ))}
+        {!state.notifications.length && (
+          <p className="empty">ยังไม่มีการแจ้งเตือน</p>
+        )}
+      </section>
+    </>
+  );
+}

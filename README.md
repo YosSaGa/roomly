@@ -1,16 +1,16 @@
 # Roomly
 
-เว็บจองห้องประชุมที่ทำไว้ลองใช้ React + Vite มีตารางจอง ห้องประชุม และหน้าจัดการสำหรับผู้ดูแล
+เว็บจองห้องประชุมสำหรับทีม สร้างด้วย React และ Vite มีตารางดูห้องว่าง การจองซ้ำ ขั้นตอนอนุมัติ เช็กอิน และรายงานการใช้ห้อง
 
-**[เปิดเว็บลองเล่น](https://yossaga.github.io/roomly/)**
+[เปิดเว็บ](https://yossaga.github.io/roomly/)
 
 ![Roomly](docs/overview.png)
 
-จองห้อง แก้เวลา หรือจองซ้ำรายสัปดาห์ได้ ถ้าเลือกห้องที่ต้องอนุมัติ ให้สลับเป็นผู้ดูแลตรงมุมขวาบนแล้วเข้าไปอนุมัติ ลองเช็กอินและดูรายงานต่อได้เลย
+โปรเจกต์นี้เป็น frontend ที่ใช้ข้อมูลตัวอย่าง ยังไม่มี backend ข้อมูลเก็บใน localStorage ส่วนการเชื่อม Google Calendar, Outlook และการสแกน QR ยังเป็นการจำลอง
 
-ตอนนี้เป็นเดโมทั้งหมด ไม่มีบัญชีจริง ข้อมูลที่ลองกรอกเก็บอยู่ในเบราว์เซอร์ของคนเล่นแต่ละคน ไม่แชร์กัน ส่วน Google Calendar, Outlook และ QR เป็นแค่ขั้นตอนจำลอง ยังไม่ได้เชื่อมบริการจริง กดเริ่มใหม่ได้ถ้าอยากกลับไปใช้ข้อมูลตัวอย่าง
+ถ้าอยากลองฝั่งผู้ดูแลหรือเปลี่ยนเวลาสำหรับเช็กอิน เปิดเมนู **เกี่ยวกับและทดลองระบบ** ด้านล่างของเว็บได้
 
-## รันเอง
+## รันในเครื่อง
 
 ใช้ Node.js 22 ขึ้นไป
 
@@ -19,12 +19,14 @@ npm ci
 npm run dev
 ```
 
-`npm test` ใช้ทดสอบกติกาการจอง และ `npm run build` สร้างไฟล์เว็บใน `dist`
+- `npm test` ทดสอบกติกาการจอง
+- `npm run build` สร้างไฟล์เว็บใน `dist`
+- `npm run format` จัดรูปแบบโค้ด
 
-หน้าต่าง ๆ อยู่ใน `src/advanced-pages.jsx` ฟอร์มอยู่ใน `src/advanced-ui.jsx` ส่วนข้อมูลตัวอย่างและกติกาการจองอยู่ใน `src/mock-model.js` ถ้าจะใช้จองร่วมกันจริง ต้องเพิ่ม backend และระบบล็อกอินก่อน
-
-เว็บเผยแพร่ผ่าน GitHub Pages ทุกครั้งที่ push เข้า `main` โดยทดสอบและ build ก่อนขึ้นเว็บ
+โค้ดหน้าจออยู่ใน `src/advanced-pages.jsx` ฟอร์มอยู่ใน `src/advanced-ui.jsx` และกติกาการจองอยู่ใน `src/mock-model.js`
 
 ## เครดิต
 
-ปรับคอมโพเนนต์ Calendar Scheduler และ Daily Timeline Scheduler ของ [Ruixen UI บน 21st.dev](https://21st.dev/@ruixen.ui) มาใช้ ดูรายละเอียดใน [บันทึกคอมโพเนนต์](src/vendor/21st/README.md) รูปจาก Unsplash ฟอนต์จาก Google Fonts ไอคอนจาก Lucide
+ส่วนเลือกวันและเวลาอ้างอิง Calendar Scheduler ของ [Ruixen UI บน 21st.dev](https://21st.dev/@ruixen.ui/components/calendar-scheduler) และใช้ Daily Timeline Scheduler เป็นแนวทางในเวอร์ชันแรก รายละเอียดอยู่ใน [บันทึกที่มา](src/vendor/21st/README.md)
+
+รูปห้องจาก Unsplash ฟอนต์จาก Google Fonts ไอคอนจาก Lucide
